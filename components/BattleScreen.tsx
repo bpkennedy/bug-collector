@@ -132,16 +132,27 @@ export default function BattleScreen({ bug, player, setPlayer, onBattleEnd }: Ba
     if (battleEndedRef.current) return;
     
     if (item === 'gnat wing') {
-      setPlayer(prev => ({
-        ...prev,
-        endurance: 150,
-        inventory: prev.inventory.filter(i => i !== 'gnat wing')
-      }));
+      setPlayer(prev => {
+        const inventoryIndex = prev.inventory.indexOf('gnat wing');
+        if (inventoryIndex === -1) return prev; // No gnat wing found
+
+        const newInventory = [
+          ...prev.inventory.slice(0, inventoryIndex),
+          ...prev.inventory.slice(inventoryIndex + 1)
+        ];
+
+        return {
+          ...prev,
+          endurance: 150,
+          inventory: newInventory
+        };
+      });
+
       addToLog("Player used a gnat wing and restored endurance to 150!");
       setShowInventory(false);
       setTimeout(() => bugAttack(), 1000);
     }
-  }, [bugAttack, addToLog, setPlayer]);
+  }, [bugAttack, addToLog, setPlayer, setShowInventory]);
 
   useEffect(() => {
     if (bugEndurance === 0 && !battleEndedRef.current) {
