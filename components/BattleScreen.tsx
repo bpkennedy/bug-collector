@@ -10,7 +10,8 @@ interface Bug {
   endurance: number;
   isKing: boolean;
   isGnat: boolean;
-  isGlowBug: boolean;  // New property for Glow Centipedes and Glow Spiders
+  isGlowBug: boolean;
+  isStag: boolean; // New property for Stag Beetle
 }
 
 interface Player {
@@ -55,22 +56,31 @@ export default function BattleScreen({ bug, player, setPlayer, onBattleEnd }: Ba
   const bugAttack = useCallback(() => {
     if (battleEndedRef.current) return;
     
-    if (Math.random() < 0.2) {
-      addToLog(`${bug.name} tried to attack but missed!`);
-      setIsBlocking(false);
-      return;
-    }
-    
-    let baseDamage;
-    if (bug.isKing) {
-      baseDamage = Math.floor(Math.random() * 41) + 30; // 30-70 damage
-    } else if (bug.isGlowBug) {
-      baseDamage = Math.floor(Math.random() * 21) + 10; // 10-30 damage
+    let damage;
+    if (bug.isStag) {
+      // Stag Beetle never misses
+      if (Math.random() < 0.3) { // 30% chance for 15 damage
+        damage = 15;
+      } else { // 70% chance for 50-60 damage
+        damage = Math.floor(Math.random() * 11) + 50;
+      }
     } else {
-      baseDamage = Math.floor(Math.random() * 41) + 10; // 10-50 damage
+      if (Math.random() < 0.2) { // 20% chance to miss for other bugs
+        addToLog(`${bug.name} tried to attack but missed!`);
+        setIsBlocking(false);
+        return;
+      }
+      
+      if (bug.isKing) {
+        damage = Math.floor(Math.random() * 41) + 30; // 30-70 damage
+      } else if (bug.isGlowBug) {
+        damage = Math.floor(Math.random() * 21) + 10; // 10-30 damage
+      } else {
+        damage = Math.floor(Math.random() * 41) + 10; // 10-50 damage
+      }
     }
 
-    const actualDamage = isBlocking ? Math.floor(baseDamage / 2) : baseDamage;
+    const actualDamage = isBlocking ? Math.floor(damage / 2) : damage;
     
     setPlayer(prevPlayer => {
       const newEndurance = Math.max(0, prevPlayer.endurance - actualDamage);
@@ -82,7 +92,7 @@ export default function BattleScreen({ bug, player, setPlayer, onBattleEnd }: Ba
     
     addToLog(`${bug.name} attacked the player for ${actualDamage} damage!${isBlocking ? ' (Blocked)' : ''}`);
     setIsBlocking(false);
-  }, [bug.name, bug.isKing, bug.isGlowBug, isBlocking, addToLog, setPlayer, endBattle]);
+  }, [bug.name, bug.isKing, bug.isGlowBug, bug.isStag, isBlocking, addToLog, setPlayer, endBattle]);
 
   const performAction = useCallback((action: string) => {
     if (battleEndedRef.current) return;
@@ -148,23 +158,42 @@ export default function BattleScreen({ bug, player, setPlayer, onBattleEnd }: Ba
       setPlayer(prev => {
         const inventoryIndex = prev.inventory.indexOf('gnat wing');
         if (inventoryIndex === -1) return prev; // No gnat wing found
-
+  
         const newInventory = [
           ...prev.inventory.slice(0, inventoryIndex),
           ...prev.inventory.slice(inventoryIndex + 1)
         ];
-
+  
         return {
           ...prev,
           endurance: 150,
           inventory: newInventory
         };
       });
-
+  
       addToLog("Player used a gnat wing and restored endurance to 150!");
-      setShowInventory(false);
-      setTimeout(() => bugAttack(), 1000);
+    } else if (item === 'stag horn') {
+      setPlayer(prev => {
+        const inventoryIndex = prev.inventory.indexOf('stag horn');
+        if (inventoryIndex === -1) return prev; // No stag horn found
+  
+        const newInventory = [
+          ...prev.inventory.slice(0, inventoryIndex),
+          ...prev.inventory.slice(inventoryIndex + 1)
+        ];
+  
+        return {
+          ...prev,
+          viciousness: 50,
+          inventory: newInventory
+        };
+      });
+  
+      addToLog("Player used a stag horn and set viciousness to 50!");
     }
+  
+    setShowInventory(false);
+    setTimeout(() => bugAttack(), 1000);
   }, [bugAttack, addToLog, setPlayer, setShowInventory]);
 
   useEffect(() => {

@@ -11,6 +11,7 @@ interface Bug {
   isKing: boolean;
   isGnat: boolean;
   isGlowBug: boolean;
+  isStag: boolean;
 }
 
 interface MapProps {
@@ -57,14 +58,14 @@ export default function Map({ bugs, setBugs, onCatchBug, mapSize }: MapProps) {
           transform: 'translate(-50%, -50%)',
           height: bug.isKing ? '40px' : '30px',
           fontSize: bug.isKing ? '12px' : '10px',
-          lineHeight: '1',
+          lineHeight: 1,
           whiteSpace: 'nowrap',
           padding: '4px 8px',
           transition: 'left 0.05s linear, top 0.05s linear',
         };
 
         let buttonClass = 'absolute text-white rounded';
-        if (bug.isGnat) {
+        if (bug.isGnat || bug.isStag) {
           buttonClass += ' bg-gray-500';
         } else if (bug.isKing) {
           buttonClass += ' bg-yellow-500';

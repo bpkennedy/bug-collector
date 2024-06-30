@@ -15,7 +15,8 @@ interface Bug {
   endurance: number;
   isKing: boolean;
   isGnat: boolean;
-  isGlowBug: boolean;  // New property for Glow Centipedes and Glow Spiders
+  isGlowBug: boolean;
+  isStag: boolean; // New property for Stag Beetle
 }
 
 interface Player {
@@ -40,7 +41,7 @@ const generateUniqueId = (): string => {
 
 const generateRandomBugs = (width: number, height: number): Bug[] => {
   const bugCount = Math.floor(Math.random() * 9) + 7; // 7 to 15 bugs
-  const bugTypes = ['Butterfly', 'Beetle', 'Ladybug', 'Mantis', 'Ant', 'Glow Centipede', 'Glow Spider'];
+  const bugTypes = ['Butterfly', 'Beetle', 'Ladybug', 'Mantis', 'Ant', 'Glow Centipede', 'Glow Spider', 'Stag Beetle'];
   const bugs: Bug[] = [];
 
   // First, generate at least two gnats
@@ -56,43 +57,55 @@ const generateRandomBugs = (width: number, height: number): Bug[] => {
       isKing: false,
       isGnat: true,
       isGlowBug: false,
+      isStag: false,
     });
   }
 
   // Then generate the rest of the bugs
   for (let i = 2; i < bugCount; i++) {
     const randomValue = Math.random();
-    let bugType, isKing, isGnat, isGlowBug, endurance;
+    let bugType, isKing, isGnat, isGlowBug, isStag, endurance;
 
     if (randomValue < 0.1) { // 10% chance for Gnat
       bugType = 'Gnat';
       isKing = false;
       isGnat = true;
       isGlowBug = false;
+      isStag = false;
       endurance = 100;
-    } else if (randomValue < 0.25) { // 15% chance for a King bug
+    } else if (randomValue < 0.2) { // 10% chance for Stag Beetle
+      bugType = 'Stag Beetle';
+      isKing = false;
+      isGnat = false;
+      isGlowBug = false;
+      isStag = true;
+      endurance = Math.floor(Math.random() * 51) + 100; // 100-150 endurance
+    } else if (randomValue < 0.35) { // 15% chance for a King bug
       bugType = bugTypes[Math.floor(Math.random() * 5)]; // Only regular bugs can be kings
       isKing = true;
       isGnat = false;
       isGlowBug = false;
+      isStag = false;
       endurance = Math.floor(Math.random() * 101) + 100;
-    } else if (randomValue < 0.4) { // 15% chance for Glow bugs
+    } else if (randomValue < 0.5) { // 15% chance for Glow bugs
       bugType = Math.random() < 0.5 ? 'Glow Centipede' : 'Glow Spider';
       isKing = false;
       isGnat = false;
       isGlowBug = true;
+      isStag = false;
       endurance = Math.floor(Math.random() * 126) + 75; // 75-200 endurance
-    } else { // 60% chance for a regular bug
+    } else { // 50% chance for a regular bug
       bugType = bugTypes[Math.floor(Math.random() * 5)]; // Only choose from first 5 bug types
       isKing = false;
       isGnat = false;
       isGlowBug = false;
+      isStag = false;
       endurance = Math.floor(Math.random() * 101);
     }
 
     bugs.push({
       id: generateUniqueId(),
-      name: `${isKing ? 'King ' : ''}${bugType}`,
+      name: bugType,
       x: Math.random() * width,
       y: Math.random() * height,
       dx: (Math.random() - 0.5) * 2,
@@ -101,6 +114,7 @@ const generateRandomBugs = (width: number, height: number): Bug[] => {
       isKing,
       isGnat,
       isGlowBug,
+      isStag,
     });
   }
 
@@ -203,7 +217,7 @@ export default function Home() {
     console.log('Battle ended, won:', wonBattle);
     let newMapBugs: Bug[];
     let newPlayer: Player;
-
+  
     if (wonBattle) {
       newMapBugs = mapBugs.filter(b => b.id !== selectedBug!.id);
       if (newMapBugs.length < 7) {
@@ -213,14 +227,20 @@ export default function Home() {
         });
       }
       
-      const gnatWingAdded = selectedBug!.isGnat ? ['gnat wing'] : [];
+      let newItem = '';
+      if (selectedBug!.isGnat) {
+        newItem = 'gnat wing';
+      } else if (selectedBug!.isStag) {
+        newItem = 'stag horn';
+      }
+  
       newPlayer = {
         ...player,
         endurance: 100,
         viciousness: 50,
-        inventory: [...player.inventory, ...gnatWingAdded]
+        inventory: newItem ? [...player.inventory, newItem] : player.inventory
       };
-
+  
       setCaughtBugs(prev => [...prev, selectedBug!]);
     } else {
       newMapBugs = generateRandomBugs(mapSize.width, mapSize.height);
@@ -230,11 +250,11 @@ export default function Home() {
         viciousness: 50
       };
     }
-
+  
     setMapBugs(newMapBugs);
     setPlayer(newPlayer);
     setSelectedBug(null);
-
+  
     // Immediate save after battle
     saveGame({
       caughtBugs: wonBattle ? [...caughtBugs, selectedBug!] : caughtBugs,
