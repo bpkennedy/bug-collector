@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Map from '@/components/Map';
 import BugCollection from '@/components/BugCollection';
 import BattleScreen from '@/components/BattleScreen';
@@ -115,6 +115,18 @@ export default function Home() {
   const [player, setPlayer] = useState<Player>({ endurance: 100, viciousness: 50, inventory: [] });
   const [mapSize, setMapSize] = useState({ width: 0, height: 0 });
 
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const debouncedSaveGame = useCallback((gameState: GameState) => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    saveTimeoutRef.current = setTimeout(() => {
+      console.log('Saving game state');
+      saveGame(gameState);
+    }, 1000); // Debounce for 1 second
+  }, []);
+
   useEffect(() => {
     console.log('Initial load');
     const savedState = loadGame();
@@ -137,8 +149,14 @@ export default function Home() {
       player,
       mapSize,
     };
-    saveGame(gameState);
-  }, [caughtBugs, mapBugs, player, mapSize]);
+    debouncedSaveGame(gameState);
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [caughtBugs, mapBugs, player, mapSize, debouncedSaveGame]);
 
   const updateMapSize = useCallback(() => {
     console.log('Updating map size');
@@ -180,7 +198,6 @@ export default function Home() {
         });
       }
       
-      // Add gnat wing to inventory if the defeated bug was a gnat
       const gnatWingAdded = selectedBug!.isGnat ? ['gnat wing'] : [];
       newPlayer = {
         ...player,
