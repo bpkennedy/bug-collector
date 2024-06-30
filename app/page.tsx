@@ -15,6 +15,7 @@ interface Bug {
   endurance: number;
   isKing: boolean;
   isGnat: boolean;
+  isGlowBug: boolean;  // New property for Glow Centipedes and Glow Spiders
 }
 
 interface Player {
@@ -39,7 +40,7 @@ const generateUniqueId = (): string => {
 
 const generateRandomBugs = (width: number, height: number): Bug[] => {
   const bugCount = Math.floor(Math.random() * 9) + 7; // 7 to 15 bugs
-  const bugTypes = ['Butterfly', 'Beetle', 'Ladybug', 'Mantis', 'Ant'];
+  const bugTypes = ['Butterfly', 'Beetle', 'Ladybug', 'Mantis', 'Ant', 'Glow Centipede', 'Glow Spider'];
   const bugs: Bug[] = [];
 
   // First, generate at least two gnats
@@ -54,26 +55,39 @@ const generateRandomBugs = (width: number, height: number): Bug[] => {
       endurance: 100,
       isKing: false,
       isGnat: true,
+      isGlowBug: false,
     });
   }
 
   // Then generate the rest of the bugs
   for (let i = 2; i < bugCount; i++) {
     const randomValue = Math.random();
-    let bugType, isKing, isGnat;
+    let bugType, isKing, isGnat, isGlowBug, endurance;
 
-    if (randomValue < 0.1) { // 10% chance for additional Gnat
+    if (randomValue < 0.1) { // 10% chance for Gnat
       bugType = 'Gnat';
       isKing = false;
       isGnat = true;
+      isGlowBug = false;
+      endurance = 100;
     } else if (randomValue < 0.25) { // 15% chance for a King bug
-      bugType = bugTypes[Math.floor(Math.random() * bugTypes.length)];
+      bugType = bugTypes[Math.floor(Math.random() * 5)]; // Only regular bugs can be kings
       isKing = true;
       isGnat = false;
-    } else { // 75% chance for a regular bug
-      bugType = bugTypes[Math.floor(Math.random() * bugTypes.length)];
+      isGlowBug = false;
+      endurance = Math.floor(Math.random() * 101) + 100;
+    } else if (randomValue < 0.4) { // 15% chance for Glow bugs
+      bugType = Math.random() < 0.5 ? 'Glow Centipede' : 'Glow Spider';
       isKing = false;
       isGnat = false;
+      isGlowBug = true;
+      endurance = Math.floor(Math.random() * 126) + 75; // 75-200 endurance
+    } else { // 60% chance for a regular bug
+      bugType = bugTypes[Math.floor(Math.random() * 5)]; // Only choose from first 5 bug types
+      isKing = false;
+      isGnat = false;
+      isGlowBug = false;
+      endurance = Math.floor(Math.random() * 101);
     }
 
     bugs.push({
@@ -83,9 +97,10 @@ const generateRandomBugs = (width: number, height: number): Bug[] => {
       y: Math.random() * height,
       dx: (Math.random() - 0.5) * 2,
       dy: (Math.random() - 0.5) * 2,
-      endurance: isGnat ? 100 : (isKing ? Math.floor(Math.random() * 101) + 100 : Math.floor(Math.random() * 101)),
+      endurance,
       isKing,
       isGnat,
+      isGlowBug,
     });
   }
 

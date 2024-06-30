@@ -3,9 +3,14 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 interface Bug {
   id: string;
   name: string;
+  x: number;
+  y: number;
+  dx: number;
+  dy: number;
   endurance: number;
   isKing: boolean;
   isGnat: boolean;
+  isGlowBug: boolean;  // New property for Glow Centipedes and Glow Spiders
 }
 
 interface Player {
@@ -56,7 +61,15 @@ export default function BattleScreen({ bug, player, setPlayer, onBattleEnd }: Ba
       return;
     }
     
-    const baseDamage = bug.isKing ? Math.floor(Math.random() * 41) + 30 : Math.floor(Math.random() * 41) + 10;
+    let baseDamage;
+    if (bug.isKing) {
+      baseDamage = Math.floor(Math.random() * 41) + 30; // 30-70 damage
+    } else if (bug.isGlowBug) {
+      baseDamage = Math.floor(Math.random() * 21) + 10; // 10-30 damage
+    } else {
+      baseDamage = Math.floor(Math.random() * 41) + 10; // 10-50 damage
+    }
+
     const actualDamage = isBlocking ? Math.floor(baseDamage / 2) : baseDamage;
     
     setPlayer(prevPlayer => {
@@ -69,7 +82,7 @@ export default function BattleScreen({ bug, player, setPlayer, onBattleEnd }: Ba
     
     addToLog(`${bug.name} attacked the player for ${actualDamage} damage!${isBlocking ? ' (Blocked)' : ''}`);
     setIsBlocking(false);
-  }, [bug.name, bug.isKing, isBlocking, addToLog, setPlayer, endBattle]);
+  }, [bug.name, bug.isKing, bug.isGlowBug, isBlocking, addToLog, setPlayer, endBattle]);
 
   const performAction = useCallback((action: string) => {
     if (battleEndedRef.current) return;

@@ -10,6 +10,7 @@ interface Bug {
   endurance: number;
   isKing: boolean;
   isGnat: boolean;
+  isGlowBug: boolean;
 }
 
 interface MapProps {
@@ -67,6 +68,8 @@ export default function Map({ bugs, setBugs, onCatchBug, mapSize }: MapProps) {
           buttonClass += ' bg-gray-500';
         } else if (bug.isKing) {
           buttonClass += ' bg-yellow-500';
+        } else if (bug.isGlowBug) {
+          buttonClass += ' bg-blue-500';
         } else {
           buttonClass += ' bg-red-500';
         }
