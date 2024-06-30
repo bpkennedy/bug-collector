@@ -7,7 +7,7 @@ import BattleScreen from '@/components/BattleScreen';
 export default function Home() {
   const [caughtBugs, setCaughtBugs] = useState<any[]>([]);
   const [selectedBug, setSelectedBug] = useState(null);
-  const [player, setPlayer] = useState({ endurance: 150, viciousness: 50 });
+  const [player, setPlayer] = useState({ endurance: 100, viciousness: 50 });
 
   const handleCatchBug = (bug: any) => {
     setSelectedBug(bug);

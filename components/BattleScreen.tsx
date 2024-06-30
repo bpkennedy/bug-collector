@@ -46,7 +46,9 @@ export default function BattleScreen({ bug, player, setPlayer, onBattleEnd }: an
       return;
     }
     
-    const damage = Math.floor(Math.random() * 41) + 10; // Random damage between 10-50
+    const minDamage = bug.isKing ? 30 : 10;
+    const maxDamage = bug.isKing ? 70 : 50;
+    const damage = Math.floor(Math.random() * (maxDamage - minDamage + 1)) + minDamage;
     setPlayer((prevPlayer: any) => ({
       ...prevPlayer,
       endurance: Math.max(0, prevPlayer.endurance - damage)
