@@ -1,8 +1,8 @@
 "use client";
-import { useState, useEffect, useCallback } from 'react';
+import { useEffect } from 'react';
 
 interface Bug {
-  id: number;
+  id: string;  // Change this to string
   name: string;
   x: number;
   y: number;
@@ -13,54 +13,13 @@ interface Bug {
 }
 
 interface MapProps {
+  bugs: Bug[];
+  setBugs: React.Dispatch<React.SetStateAction<Bug[]>>;
   onCatchBug: (bug: Bug) => void;
+  mapSize: { width: number; height: number };
 }
 
-const bugTypes = ['Butterfly', 'Beetle', 'Ladybug', 'Mantis', 'Ant'];
-
-const generateRandomBugs = (width: number, height: number): Bug[] => {
-  const bugCount = Math.floor(Math.random() * 9) + 7; // 7 to 15 bugs
-  return Array.from({ length: bugCount }, (_, i) => {
-    const isKing = Math.random() < 0.2; // 20% chance of being a king bug
-    return {
-      id: i + 1,
-      name: `${isKing ? 'King ' : ''}${bugTypes[Math.floor(Math.random() * bugTypes.length)]}`,
-      x: Math.random() * width,
-      y: Math.random() * height,
-      dx: (Math.random() - 0.5) * 2, // Random speed in x direction
-      dy: (Math.random() - 0.5) * 2, // Random speed in y direction
-      endurance: isKing ? Math.floor(Math.random() * 101) + 100 : Math.floor(Math.random() * 101),
-      isKing: isKing,
-    };
-  });
-};
-
-export default function Map({ onCatchBug }: MapProps) {
-  const [bugs, setBugs] = useState<Bug[]>([]);
-  const [mapSize, setMapSize] = useState({ width: 0, height: 0 });
-
-  const updateMapSize = useCallback(() => {
-    const mapElement = document.getElementById('bug-map');
-    if (mapElement) {
-      setMapSize({ 
-        width: mapElement.offsetWidth, 
-        height: mapElement.offsetHeight 
-      });
-    }
-  }, []);
-
-  useEffect(() => {
-    updateMapSize();
-    window.addEventListener('resize', updateMapSize);
-    return () => window.removeEventListener('resize', updateMapSize);
-  }, [updateMapSize]);
-
-  useEffect(() => {
-    if (mapSize.width > 0 && mapSize.height > 0) {
-      setBugs(generateRandomBugs(mapSize.width, mapSize.height));
-    }
-  }, [mapSize]);
-
+export default function Map({ bugs, setBugs, onCatchBug, mapSize }: MapProps) {
   useEffect(() => {
     const moveInterval = setInterval(() => {
       setBugs(prevBugs => prevBugs.map(bug => {
@@ -84,19 +43,7 @@ export default function Map({ onCatchBug }: MapProps) {
     }, 50); // Update every 50ms for smooth animation
 
     return () => clearInterval(moveInterval);
-  }, [mapSize]);
-
-  const handleCatchBug = (bug: Bug) => {
-    onCatchBug(bug);
-    setBugs(prevBugs => {
-      const newBugs = prevBugs.filter(b => b.id !== bug.id);
-      // Add a new bug if we're below the minimum
-      if (newBugs.length < 7) {
-        newBugs.push(generateRandomBugs(mapSize.width, mapSize.height)[0]);
-      }
-      return newBugs;
-    });
-  };
+  }, [setBugs, mapSize]);
 
   return (
     <div id="bug-map" className="relative w-full h-96 bg-green-200 border border-green-600 overflow-hidden">
@@ -120,7 +67,7 @@ export default function Map({ onCatchBug }: MapProps) {
             key={bug.id}
             className={`absolute ${bug.isKing ? 'bg-yellow-500' : 'bg-red-500'} text-white rounded`}
             style={buttonStyle}
-            onClick={() => handleCatchBug(bug)}
+            onClick={() => onCatchBug(bug)}
           >
             {bug.name}
           </button>
