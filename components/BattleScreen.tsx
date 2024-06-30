@@ -1,20 +1,17 @@
-"use client";
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 
 interface Bug {
-  id: string;  // Change this to string
+  id: string;
   name: string;
-  x: number;
-  y: number;
-  dx: number;
-  dy: number;
   endurance: number;
   isKing: boolean;
+  isGnat: boolean;
 }
 
 interface Player {
   endurance: number;
   viciousness: number;
+  inventory: string[];
 }
 
 interface BattleScreenProps {
@@ -28,35 +25,87 @@ export default function BattleScreen({ bug, player, setPlayer, onBattleEnd }: Ba
   const [bugEndurance, setBugEndurance] = useState(bug.endurance);
   const [actionLog, setActionLog] = useState<string[]>([]);
   const [isBlocking, setIsBlocking] = useState(false);
-  const [battleEnded, setBattleEnded] = useState(false);
+  const [showInventory, setShowInventory] = useState(false);
+  const battleEndedRef = useRef(false);
 
-  const addToLog = (action: string) => {
+  const addToLog = useCallback((action: string) => {
     setActionLog(prevLog => [action, ...prevLog]);
-  };
+  }, []);
 
-  const performAction = (action: string) => {
-    if (battleEnded) return;
+  const endBattle = useCallback((wonBattle: boolean) => {
+    if (battleEndedRef.current) return;
+    battleEndedRef.current = true;
+    
+    const message = wonBattle
+      ? `Congratulations! You won the battle! ${bug.name} has been captured!`
+      : `Oh no! You lost the battle! ${bug.name} escaped!`;
+    
+    addToLog(message);
+    setTimeout(() => {
+      alert(message);
+      onBattleEnd(wonBattle);
+    }, 100);
+  }, [bug.name, onBattleEnd, addToLog]);
 
+  const bugAttack = useCallback(() => {
+    if (battleEndedRef.current) return;
+    
+    if (Math.random() < 0.2) {
+      addToLog(`${bug.name} tried to attack but missed!`);
+      setIsBlocking(false);
+      return;
+    }
+    
+    const baseDamage = bug.isKing ? Math.floor(Math.random() * 41) + 30 : Math.floor(Math.random() * 41) + 10;
+    const actualDamage = isBlocking ? Math.floor(baseDamage / 2) : baseDamage;
+    
+    setPlayer(prevPlayer => {
+      const newEndurance = Math.max(0, prevPlayer.endurance - actualDamage);
+      if (newEndurance === 0) {
+        endBattle(false);
+      }
+      return { ...prevPlayer, endurance: newEndurance };
+    });
+    
+    addToLog(`${bug.name} attacked the player for ${actualDamage} damage!${isBlocking ? ' (Blocked)' : ''}`);
+    setIsBlocking(false);
+  }, [bug.name, bug.isKing, isBlocking, addToLog, setPlayer, endBattle]);
+
+  const performAction = useCallback((action: string) => {
+    if (battleEndedRef.current) return;
+    
     switch (action) {
       case 'punch':
-        setBugEndurance(Math.max(0, bugEndurance - 50));
-        setPlayer({ ...player, endurance: Math.max(0, player.endurance - 20) });
+        setBugEndurance(prev => {
+          const newEndurance = Math.max(0, prev - 50);
+          if (newEndurance === 0) {
+            endBattle(true);
+          }
+          return newEndurance;
+        });
+        setPlayer(prev => ({ ...prev, endurance: Math.max(0, prev.endurance - 20) }));
         addToLog("Player punched the bug for 50 damage!");
         break;
       case 'kick':
-        setBugEndurance(Math.max(0, bugEndurance - 20));
-        setPlayer({ 
-          ...player, 
-          viciousness: Math.min(50, player.viciousness + 30)
+        setBugEndurance(prev => {
+          const newEndurance = Math.max(0, prev - 20);
+          if (newEndurance === 0) {
+            endBattle(true);
+          }
+          return newEndurance;
         });
+        setPlayer(prev => ({ 
+          ...prev, 
+          viciousness: Math.min(50, prev.viciousness + 30)
+        }));
         addToLog("Player kicked the bug for 20 damage and gained 30 viciousness!");
         break;
       case 'taunt':
-        setPlayer({ 
-          ...player, 
-          endurance: Math.min(150, player.endurance + 30),
-          viciousness: Math.max(0, player.viciousness - 10)
-        });
+        setPlayer(prev => ({ 
+          ...prev, 
+          endurance: Math.min(150, prev.endurance + 30),
+          viciousness: Math.max(0, prev.viciousness - 10)
+        }));
         addToLog("Player taunted the bug, gaining 30 endurance and losing 10 viciousness.");
         break;
       case 'block':
@@ -67,55 +116,40 @@ export default function BattleScreen({ bug, player, setPlayer, onBattleEnd }: Ba
         addToLog("Player skipped their turn.");
         break;
       case 'retreat':
-        setBattleEnded(true);
         onBattleEnd(false);
+        return;
+      case 'useItem':
+        setShowInventory(prev => !prev);
         return;
     }
     
-    // Bug's turn to attack
-    setTimeout(() => bugAttack(), 1000);
-  };
-
-  const bugAttack = () => {
-    if (battleEnded) return;
-
-    if (Math.random() < 0.2) { // 20% chance to miss
-      addToLog(`${bug.name} tried to attack but missed!`);
-      setIsBlocking(false);
-      return;
+    if (!battleEndedRef.current) {
+      setTimeout(() => bugAttack(), 1000);
     }
+  }, [bugAttack, addToLog, endBattle, setPlayer, onBattleEnd]);
+
+  const handleItemUse = useCallback((item: string) => {
+    if (battleEndedRef.current) return;
     
-    const baseDamage = bug.isKing ? Math.floor(Math.random() * 41) + 30 : Math.floor(Math.random() * 41) + 10;
-    const actualDamage = isBlocking ? Math.floor(baseDamage / 2) : baseDamage;
-    
-    setPlayer(prevPlayer => ({
-      ...prevPlayer,
-      endurance: Math.max(0, prevPlayer.endurance - actualDamage)
-    }));
-    
-    addToLog(`${bug.name} attacked the player for ${actualDamage} damage!${isBlocking ? ' (Blocked)' : ''}`);
-    setIsBlocking(false);
-  };
+    if (item === 'gnat wing') {
+      setPlayer(prev => ({
+        ...prev,
+        endurance: 150,
+        inventory: prev.inventory.filter(i => i !== 'gnat wing')
+      }));
+      addToLog("Player used a gnat wing and restored endurance to 150!");
+      setShowInventory(false);
+      setTimeout(() => bugAttack(), 1000);
+    }
+  }, [bugAttack, addToLog, setPlayer]);
 
   useEffect(() => {
-    if (battleEnded) return;
-
-    if (bugEndurance === 0) {
-      setBattleEnded(true);
-      addToLog(`You won the battle! ${bug.name} has been captured!`);
-      setTimeout(() => {
-        alert(`Congratulations! You won the battle! ${bug.name} has been captured!`);
-        onBattleEnd(true);
-      }, 1000);
-    } else if (player.endurance === 0) {
-      setBattleEnded(true);
-      addToLog(`You lost the battle! ${bug.name} escaped!`);
-      setTimeout(() => {
-        alert(`Oh no! You lost the battle! ${bug.name} escaped!`);
-        onBattleEnd(false);
-      }, 1000);
+    if (bugEndurance === 0 && !battleEndedRef.current) {
+      endBattle(true);
+    } else if (player.endurance === 0 && !battleEndedRef.current) {
+      endBattle(false);
     }
-  }, [bugEndurance, player.endurance, bug.name, onBattleEnd, battleEnded]);
+  }, [bugEndurance, player.endurance, endBattle]);
 
   return (
     <div className="battle-screen p-4 bg-gray-100 rounded-lg shadow-md">
@@ -131,14 +165,33 @@ export default function BattleScreen({ bug, player, setPlayer, onBattleEnd }: Ba
           <p>Endurance: {bugEndurance}</p>
         </div>
       </div>
-      <div className="grid grid-cols-3 gap-2 mb-4">
-        <button onClick={() => performAction('punch')} className="bg-red-500 text-white px-4 py-2 rounded" disabled={battleEnded}>Punch</button>
-        <button onClick={() => performAction('kick')} className="bg-red-500 text-white px-4 py-2 rounded" disabled={battleEnded}>Kick</button>
-        <button onClick={() => performAction('taunt')} className="bg-yellow-500 text-white px-4 py-2 rounded" disabled={battleEnded}>Taunt</button>
-        <button onClick={() => performAction('block')} className="bg-blue-500 text-white px-4 py-2 rounded" disabled={battleEnded}>Block</button>
-        <button onClick={() => performAction('skip')} className="bg-blue-500 text-white px-4 py-2 rounded" disabled={battleEnded}>Skip</button>
-        <button onClick={() => performAction('retreat')} className="bg-purple-500 text-white px-4 py-2 rounded" disabled={battleEnded}>Retreat</button>
+      <div className="grid grid-cols-4 gap-2 mb-4">
+        <button onClick={() => performAction('punch')} className="bg-red-500 text-white px-4 py-2 rounded">Punch</button>
+        <button onClick={() => performAction('kick')} className="bg-red-500 text-white px-4 py-2 rounded">Kick</button>
+        <button onClick={() => performAction('taunt')} className="bg-yellow-500 text-white px-4 py-2 rounded">Taunt</button>
+        <button onClick={() => performAction('block')} className="bg-blue-500 text-white px-4 py-2 rounded">Block</button>
+        <button onClick={() => performAction('skip')} className="bg-blue-500 text-white px-4 py-2 rounded">Skip</button>
+        <button onClick={() => performAction('retreat')} className="bg-purple-500 text-white px-4 py-2 rounded">Retreat</button>
+        <button onClick={() => performAction('useItem')} className="bg-gray-500 text-white px-4 py-2 rounded">Use Item</button>
       </div>
+      {showInventory && (
+        <div className="mb-4">
+          <h3 className="font-semibold mb-2">Inventory</h3>
+          {player.inventory.length === 0 ? (
+            <p>No items in inventory</p>
+          ) : (
+            player.inventory.map((item, index) => (
+              <button
+                key={index}
+                onClick={() => handleItemUse(item)}
+                className="bg-gray-300 text-black px-4 py-2 rounded mr-2 mb-2"
+              >
+                {item}
+              </button>
+            ))
+          )}
+        </div>
+      )}
       <div className="action-log h-64 overflow-y-auto border border-gray-300 p-2 bg-white rounded">
         <h3 className="font-semibold mb-2">Action Log</h3>
         {actionLog.map((entry, index) => (

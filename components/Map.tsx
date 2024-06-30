@@ -1,8 +1,7 @@
-"use client";
 import { useEffect } from 'react';
 
 interface Bug {
-  id: string;  // Change this to string
+  id: string;
   name: string;
   x: number;
   y: number;
@@ -10,6 +9,7 @@ interface Bug {
   dy: number;
   endurance: number;
   isKing: boolean;
+  isGnat: boolean;
 }
 
 interface MapProps {
@@ -62,10 +62,19 @@ export default function Map({ bugs, setBugs, onCatchBug, mapSize }: MapProps) {
           transition: 'left 0.05s linear, top 0.05s linear',
         };
 
+        let buttonClass = 'absolute text-white rounded';
+        if (bug.isGnat) {
+          buttonClass += ' bg-gray-500';
+        } else if (bug.isKing) {
+          buttonClass += ' bg-yellow-500';
+        } else {
+          buttonClass += ' bg-red-500';
+        }
+
         return (
           <button
             key={bug.id}
-            className={`absolute ${bug.isKing ? 'bg-yellow-500' : 'bg-red-500'} text-white rounded`}
+            className={buttonClass}
             style={buttonStyle}
             onClick={() => onCatchBug(bug)}
           >

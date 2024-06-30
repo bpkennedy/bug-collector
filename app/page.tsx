@@ -3,9 +3,10 @@ import { useState, useEffect, useCallback } from 'react';
 import Map from '@/components/Map';
 import BugCollection from '@/components/BugCollection';
 import BattleScreen from '@/components/BattleScreen';
+import Inventory from '@/components/Inventory';
 
 interface Bug {
-  id: string;  // Change this to string
+  id: string;
   name: string;
   x: number;
   y: number;
@@ -13,15 +14,19 @@ interface Bug {
   dy: number;
   endurance: number;
   isKing: boolean;
+  isGnat: boolean;
+}
+
+interface Player {
+  endurance: number;
+  viciousness: number;
+  inventory: string[];
 }
 
 interface GameState {
   caughtBugs: Bug[];
   mapBugs: Bug[];
-  player: {
-    endurance: number;
-    viciousness: number;
-  };
+  player: Player;
   mapSize: {
     width: number;
     height: number;
@@ -35,19 +40,56 @@ const generateUniqueId = (): string => {
 const generateRandomBugs = (width: number, height: number): Bug[] => {
   const bugCount = Math.floor(Math.random() * 9) + 7; // 7 to 15 bugs
   const bugTypes = ['Butterfly', 'Beetle', 'Ladybug', 'Mantis', 'Ant'];
-  return Array.from({ length: bugCount }, () => {
-    const isKing = Math.random() < 0.2; // 20% chance of being a king bug
-    return {
-      id: generateUniqueId(),  // Use the new function here
-      name: `${isKing ? 'King ' : ''}${bugTypes[Math.floor(Math.random() * bugTypes.length)]}`,
+  const bugs: Bug[] = [];
+
+  // First, generate at least two gnats
+  for (let i = 0; i < 2; i++) {
+    bugs.push({
+      id: generateUniqueId(),
+      name: 'Gnat',
       x: Math.random() * width,
       y: Math.random() * height,
-      dx: (Math.random() - 0.5) * 2, // Random speed in x direction
-      dy: (Math.random() - 0.5) * 2, // Random speed in y direction
-      endurance: isKing ? Math.floor(Math.random() * 101) + 100 : Math.floor(Math.random() * 101),
-      isKing: isKing,
-    };
-  });
+      dx: (Math.random() - 0.5) * 2,
+      dy: (Math.random() - 0.5) * 2,
+      endurance: 100,
+      isKing: false,
+      isGnat: true,
+    });
+  }
+
+  // Then generate the rest of the bugs
+  for (let i = 2; i < bugCount; i++) {
+    const randomValue = Math.random();
+    let bugType, isKing, isGnat;
+
+    if (randomValue < 0.1) { // 10% chance for additional Gnat
+      bugType = 'Gnat';
+      isKing = false;
+      isGnat = true;
+    } else if (randomValue < 0.25) { // 15% chance for a King bug
+      bugType = bugTypes[Math.floor(Math.random() * bugTypes.length)];
+      isKing = true;
+      isGnat = false;
+    } else { // 75% chance for a regular bug
+      bugType = bugTypes[Math.floor(Math.random() * bugTypes.length)];
+      isKing = false;
+      isGnat = false;
+    }
+
+    bugs.push({
+      id: generateUniqueId(),
+      name: `${isKing ? 'King ' : ''}${bugType}`,
+      x: Math.random() * width,
+      y: Math.random() * height,
+      dx: (Math.random() - 0.5) * 2,
+      dy: (Math.random() - 0.5) * 2,
+      endurance: isGnat ? 100 : (isKing ? Math.floor(Math.random() * 101) + 100 : Math.floor(Math.random() * 101)),
+      isKing,
+      isGnat,
+    });
+  }
+
+  return bugs;
 };
 
 const saveGame = (gameState: GameState) => {
@@ -66,36 +108,12 @@ const clearGame = () => {
   localStorage.removeItem('bugCatcherGameState');
 };
 
-const debounce = (func: Function, delay: number) => {
-  let timeoutId: NodeJS.Timeout;
-  return (...args: any[]) => {
-    clearTimeout(timeoutId);
-    timeoutId = setTimeout(() => func(...args), delay);
-  };
-};
-
 export default function Home() {
   const [caughtBugs, setCaughtBugs] = useState<Bug[]>([]);
   const [mapBugs, setMapBugs] = useState<Bug[]>([]);
   const [selectedBug, setSelectedBug] = useState<Bug | null>(null);
-  const [player, setPlayer] = useState({ endurance: 100, viciousness: 50 });
+  const [player, setPlayer] = useState<Player>({ endurance: 100, viciousness: 50, inventory: [] });
   const [mapSize, setMapSize] = useState({ width: 0, height: 0 });
-
-  // Debounced save function
-  const debouncedSave = useCallback(
-    debounce((gameState: GameState) => saveGame(gameState), 1000),
-    []
-  );
-
-  const saveGameState = useCallback(() => {
-    const gameState: GameState = {
-      caughtBugs,
-      mapBugs,
-      player,
-      mapSize,
-    };
-    saveGame(gameState);
-  }, [caughtBugs, mapBugs, player, mapSize]);
 
   useEffect(() => {
     console.log('Initial load');
@@ -119,8 +137,8 @@ export default function Home() {
       player,
       mapSize,
     };
-    debouncedSave(gameState);
-  }, [caughtBugs, mapBugs, player, mapSize, debouncedSave]);
+    saveGame(gameState);
+  }, [caughtBugs, mapBugs, player, mapSize]);
 
   const updateMapSize = useCallback(() => {
     console.log('Updating map size');
@@ -150,51 +168,56 @@ export default function Home() {
 
   const handleBattleEnd = (wonBattle: boolean) => {
     console.log('Battle ended, won:', wonBattle);
+    let newMapBugs: Bug[];
+    let newPlayer: Player;
+
     if (wonBattle) {
-      setCaughtBugs(prev => {
-        const newCaughtBugs = [...prev, selectedBug!];
-        setMapBugs(prevBugs => {
-          const newMapBugs = prevBugs.filter(b => b.id !== selectedBug!.id);
-          if (newMapBugs.length < 7) {
-            newMapBugs.push({
-              ...generateRandomBugs(mapSize.width, mapSize.height)[0],
-              id: generateUniqueId()
-            });
-          }
-          // Immediate save after updating both caughtBugs and mapBugs
-          saveGame({
-            caughtBugs: newCaughtBugs,
-            mapBugs: newMapBugs,
-            player: { endurance: 100, viciousness: 50 },
-            mapSize,
-          });
-          return newMapBugs;
+      newMapBugs = mapBugs.filter(b => b.id !== selectedBug!.id);
+      if (newMapBugs.length < 7) {
+        newMapBugs.push({
+          ...generateRandomBugs(mapSize.width, mapSize.height)[0],
+          id: generateUniqueId()
         });
-        return newCaughtBugs;
-      });
+      }
+      
+      // Add gnat wing to inventory if the defeated bug was a gnat
+      const gnatWingAdded = selectedBug!.isGnat ? ['gnat wing'] : [];
+      newPlayer = {
+        ...player,
+        endurance: 100,
+        viciousness: 50,
+        inventory: [...player.inventory, ...gnatWingAdded]
+      };
+
+      setCaughtBugs(prev => [...prev, selectedBug!]);
     } else {
-      const newMapBugs = generateRandomBugs(mapSize.width, mapSize.height);
-      setMapBugs(newMapBugs);
-      // Immediate save after losing a battle
-      saveGame({
-        caughtBugs,
-        mapBugs: newMapBugs,
-        player: { endurance: 100, viciousness: 50 },
-        mapSize,
-      });
+      newMapBugs = generateRandomBugs(mapSize.width, mapSize.height);
+      newPlayer = {
+        ...player,
+        endurance: 100,
+        viciousness: 50
+      };
     }
+
+    setMapBugs(newMapBugs);
+    setPlayer(newPlayer);
     setSelectedBug(null);
-    setPlayer({ endurance: 100, viciousness: 50 });
+
+    // Immediate save after battle
+    saveGame({
+      caughtBugs: wonBattle ? [...caughtBugs, selectedBug!] : caughtBugs,
+      mapBugs: newMapBugs,
+      player: newPlayer,
+      mapSize,
+    });
   };
 
   const handleNewGame = () => {
     console.log('Starting new game');
     clearGame();
     setCaughtBugs([]);
-    setPlayer({ endurance: 100, viciousness: 50 });
+    setPlayer({ endurance: 100, viciousness: 50, inventory: [] });
     updateMapSize();
-    // Immediate save after starting a new game
-    saveGameState();
   };
 
   return (
@@ -215,7 +238,10 @@ export default function Home() {
         />
       ) : (
         <>
-          <BugCollection bugs={caughtBugs} />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <BugCollection bugs={caughtBugs} />
+            <Inventory items={player.inventory} />
+          </div>
           <Map bugs={mapBugs} setBugs={setMapBugs} onCatchBug={handleCatchBug} mapSize={mapSize} />
         </>
       )}
